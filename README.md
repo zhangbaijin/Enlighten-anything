@@ -3,8 +3,9 @@
 我们探索了SAM在低光照下的分割结果，如下图所示
 ![image](https://github.com/zhangbaijin/enlighten-anything/blob/main/semantic.png)
 
-
+##
+you should run the `sam.py` to produce the segment image like LOL/LIME/SCIE
 ## Train and Test
-`train.py`
-`test.py`
-`evaluate.py`
+
+`python train.py --arc WithoutCalNet --batch_size 10`
+`python test.py`
