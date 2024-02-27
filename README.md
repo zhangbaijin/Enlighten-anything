@@ -16,3 +16,14 @@ you should run the `sam.py` to produce the segment image like LOL/LIME/SCIE
 `python train.py --arc WithoutCalNet --batch_size 10`
 
 `python test.py`
+
+## Citations
+```
+ @article{Zhao_Zhang_Tang_Gu_Zhu_2023,  
+ title={Enlighten-anything:When Segment Anything Model Meets Low-light Image Enhancement}, 
+ author={Zhang, Xiaofeng, Qihan Zhao and Tang, Hao and Gu, Chaochen and Zhu, Shanying}, 
+ year={2023}, 
+ month={Jun}, 
+ language={en-US} 
+ }
+```
