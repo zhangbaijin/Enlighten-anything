@@ -12,9 +12,16 @@
 
 
 # Wakeup-Darkness: When Multimodal Meets Unsupervised Low-light Image Enhancement
-# SAM's segment results in low-light images
-我们探索了SAM在低光照下的分割结果，如下图所示
-![image](https://github.com/zhangbaijin/enlighten-anything/blob/main/semantic.png)
+# The structure
+![image](https://github.com/zhangbaijin/Wakeup-Darkness/blob/main/figs/structure.png)
+
+# The grad-cam results about CSFF
+![image](https://github.com/zhangbaijin/Wakeup-Darkness/blob/main/figs/grad-cam.png)
+
+# Compare results of LOL dataset
+![image](https://github.com/zhangbaijin/Wakeup-Darkness/blob/main/figs/table.jpg)
+
+
 
 ## Model
 `weights/`
@@ -30,6 +37,7 @@ you should run the `sam.py` to produce the segment image like LOL/LIME/SCIE
 
 `python test.py`
 
+`python test_clip.py`
 ## Citations
 ```
  @article{Zhao_Zhang_Tang_Gu_Zhu_2023,  
