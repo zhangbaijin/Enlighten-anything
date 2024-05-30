@@ -14,9 +14,8 @@ import torch.backends.cudnn as cudnn
 import torch.nn as nn
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
-from model_loss import *
-# from model_memory import *
-from dataset_eccv import ImageLowSemDataset,ImageLowSemDataset_Val
+from model import *
+from dataset import ImageLowSemDataset,ImageLowSemDataset_Val
 import cv2
 '''
 python train_loss.py --arc WithoutCalNet --batch_size 10
