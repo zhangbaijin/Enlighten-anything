@@ -1,29 +1,33 @@
 import torch
 import torch.nn as nn
 from loss import LossFunction
-from fuse_block import TransformerBlock
+from fuse_block import TransformerBlock_1
 
-class SemanticFusionUnit(nn.Module):
+
+class GatedResidualBlock(nn.Module):
     def __init__(self, channels):
-        super(SemanticFusionUnit, self).__init__()
-        
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=channels+3, out_channels=channels, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(channels),
-            nn.ReLU()
+        super(GatedResidualBlock, self).__init__()
+        self.conv1 = nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1)
+        self.bn1 = nn.BatchNorm2d(channels)
+        self.act = nn.Mish()
+        self.conv2 = nn.Conv2d(channels, channels, kernel_size=3, stride=1, padding=1)
+        self.bn2 = nn.BatchNorm2d(channels)
+        self.gate = nn.Sequential(
+            nn.Conv2d(channels, channels, kernel_size=1),
+            nn.Sigmoid()
         )
-        
-        #TODO: WEIGHT initial 【x】
-        #TODO: 模块嵌入【预处理的数据】->dataloader 【x】
-        #TODO：TEST的流程【SAM】
-        #TODO：数据归一化，因为涉及加法 ->dataloader【x】
-        
-    def forward(self, fea, sem):
-        cat = torch.cat((fea, sem), dim = 1) # (b, c, h, w)
-        fusion = self.conv(cat)
-        return fusion
-        
-        
+
+    def forward(self, x):
+        residual = x
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.act(x)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        gate = self.gate(x)
+        x = gate * x + (1 - gate) * residual  # Sigmoid门控的残差连接
+        return x
+
 
 class EnhanceNetwork(nn.Module):
     def __init__(self, layers, channels):
@@ -35,16 +39,15 @@ class EnhanceNetwork(nn.Module):
 
         self.in_conv = nn.Sequential(
             nn.Conv2d(in_channels=3, out_channels=channels, kernel_size=kernel_size, stride=1, padding=padding),
-            nn.ReLU()
+            nn.Mish()
         )
         
-        # self.fusion = SemanticFusionUnit(channels)
-        self.fusion = TransformerBlock(channels, channels, num_heads=3)
+        self.fusion = TransformerBlock_1(channels, channels, channels, num_heads=3)
 
         self.conv = nn.Sequential(
             nn.Conv2d(in_channels=channels, out_channels=channels, kernel_size=kernel_size, stride=1, padding=padding),
             nn.BatchNorm2d(channels),
-            nn.ReLU()
+            nn.Mish()
         )
 
         self.blocks = nn.ModuleList()
@@ -55,13 +58,16 @@ class EnhanceNetwork(nn.Module):
             nn.Conv2d(in_channels=channels, out_channels=3, kernel_size=3, stride=1, padding=1),
             nn.Sigmoid()
         )
+        self.block = GatedResidualBlock(channels)
+        
 
-    def forward(self, input, sem):
+    def forward(self, input, sem, depth):
         fea = self.in_conv(input)
         
-        fea = fea + self.fusion(fea, sem)
+        fea = fea + self.fusion(fea, sem,depth)
         for conv in self.blocks:
             fea = fea + conv(fea)
+            fea = self.block(fea)
         fea = self.out_conv(fea)
 
         illu = fea + input
@@ -70,106 +76,45 @@ class EnhanceNetwork(nn.Module):
         return illu
 
 
-class CalibrateNetwork(nn.Module):
-    def __init__(self, layers, channels):
-        super(CalibrateNetwork, self).__init__()
-        kernel_size = 3
-        dilation = 1
-        padding = int((kernel_size - 1) / 2) * dilation
-        self.layers = layers
-
-        self.in_conv = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=channels, kernel_size=kernel_size, stride=1, padding=padding),
-            nn.BatchNorm2d(channels),
-            nn.ReLU()
-        )
+class ColorCorrectionModule(nn.Module):
+    def __init__(self, correction_matrix=None, use_lut=False, lut_size=33):
+        super(ColorCorrectionModule, self).__init__()
         
-        # self.fusion = SemanticFusionUnit(channels)
-
-        self.convs = nn.Sequential(
-            nn.Conv2d(in_channels=channels, out_channels=channels, kernel_size=kernel_size, stride=1, padding=padding),
-            nn.BatchNorm2d(channels),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=channels, out_channels=channels, kernel_size=kernel_size, stride=1, padding=padding),
-            nn.BatchNorm2d(channels),
-            nn.ReLU()
-        )
-        self.blocks = nn.ModuleList()
-        for i in range(layers):
-            self.blocks.append(self.convs)
-
-        self.out_conv = nn.Sequential(
-            nn.Conv2d(in_channels=channels, out_channels=3, kernel_size=3, stride=1, padding=1),
-            nn.Sigmoid()
-        )
-
-    def forward(self, input, sem):
-        fea = self.in_conv(input)
-        
-        # fea = fea + self.fusion(fea, sem)
-        for conv in self.blocks:
-            fea = fea + conv(fea)
-
-        fea = self.out_conv(fea)
-        delta = input - fea
-
-        return delta
-
-
-
-class Network(nn.Module):
-
-    def __init__(self, stage=3):
-        super(Network, self).__init__()
-        self.stage = stage
-        self.enhance = EnhanceNetwork(layers=1, channels=3)
-        self.calibrate = CalibrateNetwork(layers=3, channels=16)
-        self._criterion = LossFunction()
-
-    def weights_init(self, m):
-        if isinstance(m, nn.Conv2d):
-            m.weight.data.normal_(0, 0.02)
-            m.bias.data.zero_()
-            print("111")
-
-        elif isinstance(m, nn.BatchNorm2d):
-            m.weight.data.normal_(1., 0.02)
-            print("222")
-        
+        # 如果提供了色彩校正矩阵，则直接使用
+        if correction_matrix is not None:
+            assert correction_matrix.shape == (3, 3), "Correction matrix should be a 3x3 matrix"
+            self.correction_matrix = nn.Parameter(torch.tensor(correction_matrix).float(), requires_grad=True)
+            self.use_lut = False
         else:
-            print("333")
-            
+            self.correction_matrix = None
+            self.use_lut = use_lut
 
-    def forward(self, input, sem):
+            # 初始化查找表（如果use_lut为True）
+            if self.use_lut:
+                self.lut = nn.Parameter(torch.randn(lut_size, 3).float(), requires_grad=True)
 
-        ilist, rlist, inlist, attlist = [], [], [], []
-        input_op = input
-        for i in range(self.stage):
-            inlist.append(input_op)
-            i = self.enhance(input_op, sem)
-            r = input / i
-            r = torch.clamp(r, 0, 1)
-            att = self.calibrate(r, sem)
-            input_op = input + att
-            ilist.append(i)
-            rlist.append(r)
-            attlist.append(torch.abs(att))
+    def forward(self, input):
+        if self.correction_matrix is not None:
+            # 使用色彩校正矩阵的方式
+            corrected_input = input @ self.correction_matrix
+        elif self.use_lut:
+            # 使用查找表的方式
+            normalized_input = input / 255.0
+            indices = torch.floor(normalized_input * (self.lut.size(0) - 1)).long()
+            corrected_input = F.embedding(indices.unsqueeze(0).unsqueeze(0), self.lut).squeeze()
+        else:
+            # 若没有提供校正方式，默认输出原输入
+            corrected_input = input
 
-        return ilist, rlist, inlist, attlist
+        return corrected_input  
 
-    def _loss(self, input, sem):
-        i_list, en_list, in_list, _ = self(input, sem)
-        loss = 0
-        for i in range(self.stage):
-            loss += self._criterion(in_list[i], i_list[i])
-        return loss
-
-
+    
 class Network_woCalibrate(nn.Module):
 
-    def __init__(self):
+    def __init__(self, use_lut=False):
         super().__init__()
-        self.enhance = EnhanceNetwork(layers=1, channels=3)
+        self.enhance = EnhanceNetwork(layers=2, channels=3)
+        self.color_correction = ColorCorrectionModule(use_lut=use_lut)
         self._criterion = LossFunction()
 
     def weights_init(self, m):
@@ -180,16 +125,42 @@ class Network_woCalibrate(nn.Module):
         elif isinstance(m, nn.BatchNorm2d):
             m.weight.data.normal_(1., 0.02)
 
-    def forward(self, input, sem):
-        i = self.enhance(input, sem)
+    def forward(self, input, sem,depth):
+        i = self.enhance(input, sem,depth)
         r = input / i
         r = torch.clamp(r, 0, 1)
-        return i, r
+        
+        # 应用颜色校正
+        corrected_r = self.color_correction(r)
+        
+        return i, corrected_r, depth
 
 
-    def _loss(self, input, sem):
-        i, r = self(input, sem)
-        loss = self._criterion(input, i)
+    def _loss(self, input, sem, depth):
+        i, r,d = self(input, sem,depth)
+        loss_semantic = self._criterion(input, i)
+        loss_depth =self._criterion(input, d)
+        loss=loss_semantic+loss_depth
         return loss
     
+    
+# def count_parameters(model):
+#     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+# net = Network_woCalibrate()
+# total_params = count_parameters(net)
+# print(f"Total trainable parameters: {total_params}")
+
+# import torch
+# from thop import profile
+
+# input_tensor = torch.randn(1, 3, 480, 600)  # Replace height and width with your input size
+# model = Network_woCalibrate()
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# # Move the model and input tensor to the same device (e.g., CPU or GPU)
+# model.to(device)
+# input_tensor = input_tensor.to(device)
+
+# flops, params = profile(model, inputs=(input_tensor,input_tensor,input_tensor))
+# print(f"FLOPs: {flops / 1e9} G FLOPs")  # Convert FLOPs to Giga FLOPs
 
