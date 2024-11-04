@@ -6,7 +6,7 @@
 <img alt="GitHub repo size" src="https://img.shields.io/github/repo-size/zhangbaijin/Wakeup-Darkness?color=green"> <img alt="GitHub top language" src="https://img.shields.io/github/languages/top/zhangbaijin/Wakeup-Darkness">  <img alt="GitHub issues" src="https://img.shields.io/github/issues/zhangbaijin/Wakeup-Darkness"> 
 </div>
 <div align="center">
-<img alt="GitHub watchers" src="https://img.shields.io/github/watchers/zhangbaijin/Wakeup-Darkness?style=social"> <img alt="GitHub stars" src="https://img.shields.io/github/stars/zhangbaijin/Awesome-LLM-explainable"> <img alt="GitHub forks" src="https://img.shields.io/github/forks/zhangbaijin/Wakeup-Darkness?style=social">
+<img alt="GitHub watchers" src="https://img.shields.io/github/watchers/zhangbaijin/Wakeup-Darkness?style=social"> <img alt="GitHub stars" src="https://img.shields.io/github/stars/zhangbaijin/Wakeup-Darkness"> <img alt="GitHub forks" src="https://img.shields.io/github/forks/zhangbaijin/Wakeup-Darkness?style=social">
 </div>
 
 
