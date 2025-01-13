@@ -39,3 +39,13 @@ you should run the `sam.py` to produce the segment image like LOL/LIME/SCIE
 
 `python test_clip.py`
 
+
+## Citation
+``````bibtex
+@article{zhang2025,
+  title={Wakeup-Darkness: When Multimodal Meets Unsupervised Low-light Image Enhancement},
+  author={Xiaofeng Zhang, Zishan Xu, Hao Tang, Chaochen Gu, Wei Chen},
+  journal={ACM Transactions on Multimedia Computing, Communications and Applications},
+  year={2025}
+}
+
