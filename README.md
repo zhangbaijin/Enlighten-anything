@@ -11,7 +11,7 @@
 
 
 
-# Wakeup-Darkness: When Multimodal Meets Unsupervised Low-light Image Enhancement
+# [ACM TOMM] Wakeup-Darkness: When Multimodal Meets Unsupervised Low-light Image Enhancement
 # The structure
 ![image](https://github.com/zhangbaijin/Wakeup-Darkness/blob/main/figs/structure.png)
 
